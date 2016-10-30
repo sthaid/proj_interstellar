@@ -1,56 +1,128 @@
+// XXX LICENSE
+//
+// Usage: interstellar [-v] [distance] [time]
+//           -v:       verbsoe
+//           distance: default is 10 Light Years
+//           time:     default is 100 Years
+//
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <math.h>
 
-#define C       3E8  // m/sec
-#define M_SHIP  1E6  // kg
+//
+// defines
+//
+
+#define VELOCITY_WARNING  0.4  // C   - print warning if velocity of spaceship exceeds this
+#define C                 3E8  // meters/sec
+
+#define DEFAULT_DISTANCE     LIGHT_YEARS_TO_METERS(10);
+#define DEFAULT_TIME         YEARS_TO_SECONDS(100);
+#define DEFAULT_MASS_OF_SHIP 1E6   // kg  - about twice the International Space Station)
 
 #define LIGHT_YEARS_TO_METERS(x) ((double)(x) * (C * 86400 * 365))
 #define METERS_TO_LIGHT_YEARS(x) ((double)(x) / (C * 86400 * 365))
 
-#define YEARS_TO_SECONDS(x)   ((double)(x) * (365. * 86400))
-#define SECONDS_TO_YEARS(x)   ((double)(x) / (365. * 86400))
+#define YEARS_TO_SECONDS(x) ((double)(x) * (365. * 86400))
+#define SECONDS_TO_YEARS(x) ((double)(x) / (365. * 86400))
 
-//http://www.americangeosciences.org/critical-issues/faq/how-much-electricity-does-typical-nuclear-power-plant-generate
-//The Palo Verde plant in Arizona has three reactors and has the largest combined generating capacity1 of about 3,937 MW. 
-// 1 megawatt hour = 3.6E9 joules
-// Palo Verde  4000 MW
-// Palo Verde  4000 MW * 24*365  hours/year   =   3.5E7 MWH / year
-//                                            =   1.26E17 joules / year
-
+// The energy output from the Palo Verde Nuclear power plant in Arizone, which has the largest
+// generating capacity of Nuclear power plant in the US.
+// Refer to: http://www.americangeosciences.org/critical-issues/faq/how-much-electricity-does-typical-nuclear-power-plant-generate
+//
+// This power plant's power output is 3937 MegaWatts, 
+// multipling by 24*365 gives units of MegaWattHours/Year,
+// and multiplying by 3.6E9 Joules/MegaWattHour gives units of Joules/Year
 #define PALO_VERDE_JOULES_PER_YEAR (3937.0 * 24 * 365 * 3.6E9)   // 1.24E17 joules/yr - equiv mass = 1.4 kg
-#define VELOCITY_WARNING  0.4
+
+//
+// variables
+//
 
 bool Verbose = false;  // XXX getopt and get args
 
+//
+// prototypes
+//
+
+void help(void);
 void constant_acceleration_spaceship_simulation(double Distance, double Time, double Mship, double Vthrust,
     double * RetMthrust, double * RetEnergy, double * RetVmax, double * RetKEshipmax, double * RetKEthrustmax);
 
+// -----------------  MAIN  --------------------------------------------------------
+
 int main(int argc, char **argv)
 {
-    double Distance, Time, Vthrust;
+    double Distance, Time, Mship, Vthrust;
     double RetMthrust, RetEnergy, RetVmax, RetKEshipmax, RetKEthrustmax;
+    char   opt_char;
 
-    // read the Distance and Time that the simulated spaceship will travel
-    Distance = LIGHT_YEARS_TO_METERS(10);
-    Time = YEARS_TO_SECONDS(100);
+    // parse options
+    while (true) {
+        opt_char = getopt(argc, argv, "vh");
+        if (opt_char == -1) {
+            break;
+        }
+        switch (opt_char) {
+        case 'v':
+            Verbose = true;
+            break;
+        case 'h':
+            help();
+            return 0;
+        default:
+            return 1;
+        }
+    }
 
+    // if args are supplied for Distance and Time then use them
+    Distance = DEFAULT_DISTANCE;
+    Time     = DEFAULT_TIME;
+    Mship    = DEFAULT_MASS_OF_SHIP;
+    if (argc-optind >= 1) {
+        if (sscanf(argv[optind], "%lf", &Distance) != 1) {
+            printf("ERROR: invalid Distance arg '%s'\n", argv[optind]);
+        }
+        Distance = LIGHT_YEARS_TO_METERS(Distance);
+        optind++;
+    }
+    if (argc-optind >= 1) {
+        if (sscanf(argv[optind], "%lf", &Time) != 1) {
+            printf("ERROR: invalid Time arg '%s'\n", argv[optind]);
+        }
+        Time = YEARS_TO_SECONDS(Time);
+        optind++;
+    }
+    if (argc-optind >= 1) {
+        if (sscanf(argv[optind], "%lf", &Mship) != 1) {
+            printf("ERROR: invalid Mass of Ship arg '%s'\n", argv[optind]);
+        }
+        optind++;
+    }
+
+    // XXX check args
+
+    // print settings
     printf("Constant Acceleration Spaceship Simulation:\n");
     printf("- Distance To Destination         = %.2f LY\n", METERS_TO_LIGHT_YEARS(Distance));
     printf("- Time To Destination             = %.2f Years\n", SECONDS_TO_YEARS(Time));
-    printf("- Mass of Ship (not incl Mthrust) = %.2f Million Kg\n", M_SHIP/1000000);
+    printf("- Mass of Ship (not incl Mthrust) = %.2f Million Kg\n", Mship/1000000);
     printf("\n");
-
-    // simulate the trip for a range of thrust mass values, and print results
+    
+    // simulate the trip for a range of thrust velocities, and print results
+    // XXX table form when not verbose
     for (Vthrust = 0.1*C; Vthrust < C; Vthrust += 0.1*C) {
         constant_acceleration_spaceship_simulation(
-            Distance, Time, M_SHIP, Vthrust,
+            Distance, Time, Mship, Vthrust,
             &RetMthrust, &RetEnergy, &RetVmax, &RetKEshipmax, &RetKEthrustmax);
         printf("Vthrust = %4.2f C  Mthrust/Mship = %5.2f  Energy = %6.0f PaloVerdes  " 
-               "Vmax = %4.2f C  KEmax = %6.0f + %6.0f PaloVerdes\n",   // XXX msg on PaloVerdes    XXX table?
+               "Vmax = %4.2f C  KEmax = %6.0f + %6.0f PaloVerdes\n",  
                Vthrust / C, 
-               RetMthrust / M_SHIP, 
+               RetMthrust / Mship, 
                RetEnergy / PALO_VERDE_JOULES_PER_YEAR,
                RetVmax / C,
                RetKEshipmax / PALO_VERDE_JOULES_PER_YEAR,
@@ -60,41 +132,49 @@ int main(int argc, char **argv)
         }
     }
 
-
-#if 0
-    double A, Mship, Mthrust, Vthrust;
-    //double Tflip;
-
-    //S        = LIGHT_YEARS_TO_METERS(10);   // m
-    A        = 0.01;                        // m/sec
-    Mship    = 1E6;                         // kg
-    Vthrust  = .99 * C;                    // m/sec
-    Mthrust  = 3E4;   //(exp(sqrt(4*S*A/Vthrust/Vthrust)) - 1) * Mship / 10;
-    //Tflip    = sqrt(4.*S/A) / 2;
-    //constant_acceleration_model_ex(A, Mship, Mthrust, Vthrust, Tflip, true);
-    //printf("\n");
-
-    constant_acceleration_model(A, Mship, Mthrust, Vthrust);
-
-
-ln (Mthrust / Mship) = sqrt(4*S*A/(Vthrst/K)/(Vthrust/K))
-
-
-#endif
-
+    // done
     return 0;
 }
+
+void help(void)
+{
+    printf("\n");
+    printf("USAGE: interstellar [-v] [distance] [time]\n");
+    printf("          -v:       verbsoe\n");
+    printf("          distance: default is 10 Light Years\n");
+    printf("          time:     default is 100 Years\n");
+    printf("\n");
+    printf("NOTES\n");
+    printf("- PaloVerdes is a unit of energy that I've defined. It equals the yearly energy output\n");
+    printf("  of the Palo Verdes nuclear power plant in Arizona assuming the plant is running \n");
+    printf("  continuously at peak power for 1 year.\n");
+    printf("\n");
+    printf("- The simulation does not take into account the mass equivalent of the energy\n");
+    printf("  stored on the spaceship. In some scenarios this mass could be significant.\n");
+    printf("\n");
+    printf("- Special Relativity is used when calculating the momemtum and kinetic energy of the thrust.\n");
+    printf("\n");
+    printf("- The spaceship is assumed to be not substantially relativistic, and Special Relativity \n");
+    printf("  is not used to calculate the spaceship's Distance, Time, and Velocity. A warning\n");
+    printf("  message is printed if the spaceship's velocity exceeds 0.4C, Speed of  0.4C would\n");
+    printf("  have approximately 10%% deviation between Newtonian mechanics and Special Relativity.\n");
+    printf("\n");
+}
+
+// -----------------  INTERSTELLAR SPACESHIP SIMULATION  ---------------------------
+
+// XXX comments
 
 void constant_acceleration_spaceship_simulation(
     double Distance, 
     double Time, 
     double Mship, 
     double Vthrust,
-    double * RetMthrust,
-    double * RetEnergy,
-    double * RetVmax,
-    double * RetKEshipmax,
-    double * RetKEthrustmax)
+    double * RetMthrust,      // mass of thrust at the begining of the trip
+    double * RetEnergy,       // the total kinetic energy given to the thrust
+    double * RetVmax,         // maximum velocity of the spaceship
+    double * RetKEshipmax,    // maximum kinetic energy of the spaceship
+    double * RetKEthrustmax)  // maximum kinetect energy of the thrust mass
 {
     #define PRINT_INTVL (365 * 86400)
 
@@ -190,122 +270,3 @@ void constant_acceleration_spaceship_simulation(
     *RetKEshipmax   = KEshipmax;
     *RetKEthrustmax = KEthrustmax;
 }
-
-
-
-/**
-bool constant_acceleration_model_ex(double A, double Mship, double Mthrust, double Vthrust, double Tflip, bool PrintFlag)
-{
-
-    double M, V, T, S, E, MthrustExpelled;
-    double DeltaT, DeltaV, DeltaM, DeltaE;
-
-    bool FlipPrinted = false;
-
-    if (PrintFlag) {
-        printf("Mass of Ship     = %.3f million kg\n", Mship/1000000); 
-        printf("Mass of Thrust   = %.3f million kg\n", Mthrust/1000000);
-        printf("Mass Thrust/Ship = %.2f\n", Mthrust / Mship);
-        printf("Acceleration     = %.2f m/s^2\n", A);
-        printf("Thrust Velocity  = %.2f C\n", Vthrust/C);
-        //printf("Flip Time        = %.2f Years\n", SECONDS_TO_YEARS(Tflip));
-        printf("\n");
-        printf("        Time     Distance   ThrustTank     Velocity        Accel       Energy   ThrustMass\n");
-        printf("     (Years)  (LightYear)    (Percent)          (C)      (m/s*2)     (XXXXXX)          (Kg)\n");
-        printf("     -------  -----------    ---------      -------      -------     -------    -----------\n");
-    }
-
-    M = Mship + Mthrust;
-    V = 0;
-    T = 0;
-    S = 0;
-    E = 0;
-    MthrustExpelled = 0;
-
-    DeltaT = 3600;  // 1 hour
-    DeltaV = A * DeltaT;
-
-
-
-    while (true) {
-        if ((PrintFlag) &&
-            (M <= Mship || ((uint64_t)T % PRINT_INTVL) == 0)) 
-        {
-            printf("%12.2f %12.2f %12.2f %12.4f %12.2f %12.2f %12.2f",
-                    SECONDS_TO_YEARS(T),
-                    METERS_TO_LIGHT_YEARS(S),
-                    100 * (M - Mship) / Mthrust,
-                    V / C,
-                    A,
-                    E / PALO_VERDE_JOULES_PER_YEAR,
-                    MthrustExpelled);
-            if (T > Tflip && !FlipPrinted) {
-                printf("    FLIP");
-                FlipPrinted = true;
-            }
-            if (V / C > VELOCITY_WARNING) {
-                printf("    WARNING V/C = %.2f IS > %.2f", V/C, VELOCITY_WARNING);
-            }
-            printf("\n");
-            E = 0;
-            MthrustExpelled = 0;
-        }
-
-        if (M <= Mship) {
-            break;
-        }
-
-#if 0
-        DeltaM = (M * DeltaV) / (Vthrust / K);   // XXX SRT
-        // DeltaE = 0.5 * DeltaM * Vthrust * Vthrust;   // XXX SRT   XXX zero loss?
-        DeltaE = DeltaM * C * C * (1./K - 1.);
-#else
-        DeltaM = (M * DeltaV) / (Vthrust);   // XXX SRT
-        DeltaE = 0.5 * DeltaM * Vthrust * Vthrust;   // XXX SRT   XXX zero loss?
-#endif
-
-        V += (T < Tflip ? DeltaV : -DeltaV);
-        M -= DeltaM;
-        T += DeltaT;
-        S += V * DeltaT;
-        E += DeltaE;
-        MthrustExpelled += DeltaM;
-    }
-
-    bool TflipIsTooLarge = (V > 0);
-    return TflipIsTooLarge;
-}
-
-
-xxxxxxxxxxxxxxxx
-
-    double  TflipLow, TflipHigh, TflipCheck;
-    int32_t i;
-    bool    TflipIsTooLarge;
-
-    TflipLow  = YEARS_TO_SECONDS(0);
-    TflipHigh = YEARS_TO_SECONDS(10);
-    while (true) {
-        TflipIsTooLarge = constant_acceleration_model_ex(A, Mship, Mthrust, Vthrust, TflipHigh, false);
-        if (TflipIsTooLarge) {
-            break;
-        }
-        TflipLow  += YEARS_TO_SECONDS(10);
-        TflipHigh += YEARS_TO_SECONDS(10);
-    }
-
-    for (i = 0; i < 20; i++) {
-        TflipCheck = (TflipLow + TflipHigh) / 2;
-    
-        TflipIsTooLarge = constant_acceleration_model_ex(A, Mship, Mthrust, Vthrust, TflipCheck, false);
-
-        if (TflipIsTooLarge) {
-            TflipHigh = TflipCheck;
-        } else {
-            TflipLow = TflipCheck;
-        }
-    }
-
-    constant_acceleration_model_ex(A, Mship, Mthrust, Vthrust, TflipCheck, true);
-}
-**/
