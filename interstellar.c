@@ -236,7 +236,7 @@ continuously at peak power for 1 year.\n\
 // The spaceship is assumed to be not substantially relativistic, and Special Relativity 
 // is not used to calculate the spaceship's Distance, Time, Mass and Velocity. A warning
 // message is printed if the spaceship's velocity exceeds 0.4C, Speed of 0.4C would
-// have approximately 10%% deviation between Newtonian mechanics and Special Relativity.
+// have approximately 10% deviation between Newtonian mechanics and Special Relativity.
 //
 // PaloVerdes is a unit of energy that I have invented. It equals the yearly energy output
 // of the Palo Verdes nuclear power plant in Arizona assuming the plant is running 
