@@ -138,6 +138,7 @@ int main(int argc, char **argv)
 
 void help(void)
 {
+//XXX update
     printf("\n");
     printf("USAGE: interstellar [-v] [distance] [time]\n");
     printf("          -v:       verbsoe\n");
@@ -163,7 +164,157 @@ void help(void)
 
 // -----------------  INTERSTELLAR SPACESHIP SIMULATION  ---------------------------
 
-// XXX comments
+// OVERVIEW 
+// --------
+
+// The simulated spaceship travels to it's destination at constant acceleration.
+// At the midpoint the ship turns around so that the acceleration vector is reversed.
+// The ship has a tank which contains the thrust mass. The thrust mass is expelled at
+// a constant velocity. The rate that the thrust mass is depleted reduces throughout
+// the trip because the total mass of the ship reduces during the trip.
+//
+// When the simulated spaceship arrives at it's destination (that is it has travelled the
+// specified distance): 
+//   (a) the specified amount of time will have elapsed, 
+//   (b) the velocity of the spaceship will be zero
+//   (c) the thrust mass tank will be empty
+//
+// The simulation will be repeated varying the velocity of thrust, and keeping the
+// distance and time to the destination the same. This allows a comparison of the 
+// amount of thrust mass required and the amount of energy required as a function of 
+// the velocity of the thrust.
+//
+// The simulation does not take into account the mass equivalent of the energy
+// stored on the spaceship. In some scenarios this mass could be significant, and
+// should be accounted for to improve the accuracy of the simulation.
+// 
+// Special Relativity is used when calculating the momemtum and kinetic energy of the thrust.
+// 
+// The spaceship is assumed to be not substantially relativistic, and Special Relativity 
+// is not used to calculate the spaceship's Distance, Time, and Velocity. A warning
+// message is printed if the spaceship's velocity exceeds 0.4C, Speed of  0.4C would
+// have approximately 10%% deviation between Newtonian mechanics and Special Relativity.
+//
+// PaloVerdes is a unit of energy that I have invented. It equals the yearly energy output
+// of the Palo Verdes nuclear power plant in Arizona assuming the plant is running 
+// continuously at peak power for 1 year.
+//
+// ARGS
+// ----
+//
+// Inputs
+//   Distance     : distance of the trip
+//   Time:        : duration of the trip
+//   Mship        : mass of the ship
+//   Vthrust      : velocity that the thrust mass is expelled
+//
+// Outputs
+//   RetMthrust:      thrust mass at the begining of the trip
+//   RetEnergy:       the total kinetic energy given to the thrust during the trip
+//   RetVmax:         maximum velocity of the spaceship
+//   RetKEshipmax:    maximum kinetic energy of the spaceship excluding the thrust mass
+//   RetKEthrustmax:  maximum kinetect energy of the thrust mass
+// 
+// RELATIONSHIP BETWEEN DISTANCE, TIME, AND ACCELERATION
+// -----------------------------------------------------
+//
+// Due to the constant accelleration we know that the ship must reverse thrust
+// at the midpoint of the trip.  Thus:
+//
+//                                        2
+//      Distance    1            ( Time ) 
+//      -------- = --- x Accel x ( ---- )
+//        2         2            (  2   )
+//
+// Solving for Accel
+//
+//              4 * Distance
+//      Accel = ------------
+//                Time^2
+//
+// CALCULATING THE AMOUNT OF THRUST MASS NEEDED
+// --------------------------------------------
+//
+// At the begining of the trip the thrust tank will be filled with just enough mass
+// so that the tank is empty coincident with reaching the destination.
+//
+// This problem is approached by not performing the turnaround at the midpoint of the
+// trip. Just let the spaceship continue to accelerate for the trip's time, and caclulate
+// how much thrust mass is needed at the begining of the trip such that the thrust mass
+// is totally depleted at the end of the trip.
+//
+// From conservation of momemtum we have:
+//      M x dV = dM x Vthrust
+//  Where:
+//      M is the current total mass (Mship + Mthrust)
+//      V is the current velocity of the spaceship
+//      Vthrust is the velocity that the thrust mass is expelled
+//
+//  Dividing by dT (where T is the current time)
+//                   dM
+//      M x Accel =  -- x Vthrust
+//                   dT
+//
+// Rearrange
+//      dM     Accel
+//      -- =  ------- x dT
+//      M     Vthrust
+//
+// Integrate both sides, and solve for M
+//
+//              Accel
+//      ln(M = ------- x T + C
+//             Vthrust
+//
+//                (Accel / Vthrust) x T
+//      M = C * e
+//
+// At the begining of the trip: T=0 and  M=Mship+Mthrust. 
+// Therefor C=Mship+Mthrust.
+//
+//                                (Accel / Vthrust) x T
+//      M = (Mship + Mthrust) * e
+//
+// At the end of the trip T=Time and M=Mship
+//
+//                                   (Accel / Vthrust) x Time
+//      Mship = (Mship + Mthrust) * e
+//
+// Solving for Mthrust
+//
+//                (             1                  )
+//      Mthrust = (---------------------------- - 1) x Mship
+//                (  (Accel / Vthrust) x Time      )
+//                ( e                              )
+//
+//                  -(Accel / Vthrust) x Time)
+//      Mthrust = (e                            - 1) x Mship
+//
+// There seemse to be an error, because the above result yields a 
+// negative value for Mthrust. This problem is resolved by examining the
+// relatiionship between Accel and Vthrust. Accel is positive and Vthrust
+// is negative.
+//
+// Let's keep this simple and use a positive value for Vthrust and eliminate
+// the negative sign. The equation becomes:
+//
+//                  (Accel / Vthrust) x Time)
+//      Mthrust = (e                         - 1) x Mship
+//
+// Finally, in classical mechanics, momentum is
+//      p = m x v
+// and in special relativity
+//      p = m x v / K
+//      K = sqrt(1 - v^2/c^2)
+//
+// So, to incorporate special relativity in the equation for Mthrust,
+// replace Vthrust with Vthrust/K ...
+//
+//                  (Accel / (Vthrust / K)) x Time)
+//      Mthrust = (e                              - 1) x Mship
+//
+//      WHere K = sqrt(1 - Vthrust^2 / c^2)
+//
 
 void constant_acceleration_spaceship_simulation(
     double Distance, 
@@ -186,7 +337,7 @@ void constant_acceleration_spaceship_simulation(
     Accel    = 4. * Distance / (Time * Time);
     TimeFlip = Time / 2;
     K        = sqrt(1. - (Vthrust*Vthrust)/(C*C));
-    Mthrust  = (exp(sqrt(4.*Distance*Accel/(Vthrust/K)/(Vthrust/K))) - 1) * Mship;
+    Mthrust  = (exp(Accel / (Vthrust/K) * Time) - 1) * Mship;
     DeltaT   = 3600;  // 1 hour
     DeltaV   = Accel * DeltaT;
 
