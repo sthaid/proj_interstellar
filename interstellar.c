@@ -43,7 +43,7 @@
 // variables
 //
 
-bool Verbose = false;  // XXX getopt and get args
+bool Verbose = false;
 
 //
 // prototypes
@@ -114,7 +114,6 @@ int main(int argc, char **argv)
     printf("\n");
     
     // simulate the trip for a range of thrust velocities, and print results
-    // XXX table form when not verbose
     for (Vthrust = 0.1*C; Vthrust < C; Vthrust += 0.1*C) {
         constant_acceleration_spaceship_simulation(
             Distance, Time, Mship, Vthrust,
@@ -138,28 +137,50 @@ int main(int argc, char **argv)
 
 void help(void)
 {
-//XXX update
-    printf("\n");
-    printf("USAGE: interstellar [-v] [distance] [time]\n");
-    printf("          -v:       verbsoe\n");
-    printf("          distance: default is 10 Light Years\n");
-    printf("          time:     default is 100 Years\n");
-    printf("\n");
-    printf("NOTES\n");
-    printf("- PaloVerdes is a unit of energy that I've defined. It equals the yearly energy output\n");
-    printf("  of the Palo Verdes nuclear power plant in Arizona assuming the plant is running \n");
-    printf("  continuously at peak power for 1 year.\n");
-    printf("\n");
-    printf("- The simulation does not take into account the mass equivalent of the energy\n");
-    printf("  stored on the spaceship. In some scenarios this mass could be significant.\n");
-    printf("\n");
-    printf("- Special Relativity is used when calculating the momemtum and kinetic energy of the thrust.\n");
-    printf("\n");
-    printf("- The spaceship is assumed to be not substantially relativistic, and Special Relativity \n");
-    printf("  is not used to calculate the spaceship's Distance, Time, and Velocity. A warning\n");
-    printf("  message is printed if the spaceship's velocity exceeds 0.4C, Speed of  0.4C would\n");
-    printf("  have approximately 10%% deviation between Newtonian mechanics and Special Relativity.\n");
-    printf("\n");
+    printf("\
+\n\
+USAGE\n\
+\n\
+interstellar [-v] [distance] [time]\n\
+    -v:       verbsoe\n\
+    distance: default is 10 Light Years\n\
+    time:     default is 100 Years\n\
+\n\
+OVERVIEW\n\
+\n\
+The simulated spaceship travels to it's destination at constant acceleration.\n\
+At the midpoint the ship turns around so that the acceleration vector is reversed.\n\
+The ship has a tank which contains the thrust mass. The thrust mass is expelled at\n\
+a constant velocity. The rate that the thrust mass is depleted reduces throughout\n\
+the trip because the total mass of the ship reduces during the trip.\n\
+\n\
+When the simulated spaceship arrives at it's destination (that is it has travelled the\n\
+specified distance): \n\
+  (a) the specified amount of time will have elapsed, \n\
+  (b) the velocity of the spaceship will be zero\n\
+  (c) the thrust mass tank will be empty\n\
+\n\
+The simulation will be repeated varying the velocity of thrust, and keeping the\n\
+distance and time to the destination the same. This allows a comparison of the \n\
+amount of thrust mass required and the amount of energy required as a function of \n\
+the velocity of the thrust mass.\n\
+\n\
+The simulation does not take into account the mass equivalent of the energy\n\
+stored on the spaceship. In some scenarios this mass could be significant, and\n\
+could be taken into account to improve the accuracy of the simulation.\n\
+\n\
+Special Relativity is used when calculating the momemtum and kinetic energy of the\n\
+ thrust mass.\n\
+\n\
+The spaceship is assumed to be not substantially relativistic, and Special Relativity \n\
+is not used to calculate the spaceship's Distance, Time, Mass and Velocity. A warning\n\
+message is printed if the spaceship's velocity exceeds 0.4C, Speed of 0.4C would\n\
+have approximately 10%% deviation between Newtonian mechanics and Special Relativity.\n\
+\n\
+PaloVerdes is a unit of energy that I have invented. It equals the yearly energy output\n\
+of the Palo Verdes nuclear power plant in Arizona assuming the plant is running \n\
+continuously at peak power for 1 year.\n\
+\n");
 }
 
 // -----------------  INTERSTELLAR SPACESHIP SIMULATION  ---------------------------
@@ -182,17 +203,18 @@ void help(void)
 // The simulation will be repeated varying the velocity of thrust, and keeping the
 // distance and time to the destination the same. This allows a comparison of the 
 // amount of thrust mass required and the amount of energy required as a function of 
-// the velocity of the thrust.
+// the velocity of the thrust mass.
 //
 // The simulation does not take into account the mass equivalent of the energy
 // stored on the spaceship. In some scenarios this mass could be significant, and
-// should be accounted for to improve the accuracy of the simulation.
+// could be taken into account to improve the accuracy of the simulation.
 // 
-// Special Relativity is used when calculating the momemtum and kinetic energy of the thrust.
+// Special Relativity is used when calculating the momemtum and kinetic energy of the 
+// thrust mass.
 // 
 // The spaceship is assumed to be not substantially relativistic, and Special Relativity 
-// is not used to calculate the spaceship's Distance, Time, and Velocity. A warning
-// message is printed if the spaceship's velocity exceeds 0.4C, Speed of  0.4C would
+// is not used to calculate the spaceship's Distance, Time, Mass and Velocity. A warning
+// message is printed if the spaceship's velocity exceeds 0.4C, Speed of 0.4C would
 // have approximately 10%% deviation between Newtonian mechanics and Special Relativity.
 //
 // PaloVerdes is a unit of energy that I have invented. It equals the yearly energy output
@@ -238,17 +260,15 @@ void help(void)
 // At the begining of the trip the thrust tank will be filled with just enough mass
 // so that the tank is empty coincident with reaching the destination.
 //
-// This problem is approached by not performing the turnaround at the midpoint of the
-// trip. Just let the spaceship continue to accelerate for the trip's time, and caclulate
-// how much thrust mass is needed at the begining of the trip such that the thrust mass
-// is totally depleted at the end of the trip.
+// To solve for the amount of thrust mass needed the following calculates the amount
+// of thrust mass needed for constant acceleration for a specified amount of time.
 //
 // From conservation of momemtum we have:
 //      M x dV = dM x Vthrust
 //  Where:
-//      M is the current total mass (Mship + Mthrust)
-//      V is the current velocity of the spaceship
-//      Vthrust is the velocity that the thrust mass is expelled
+//      M is the total mass of the ship plus the mass in the thrust tank at time T
+//      V is the velocity of the spaceship at time T
+//      Vthrust is the velocity that the thrust mass is expelled, which is a constant
 //
 //  Dividing by dT (where T is the current time)
 //                   dM
@@ -334,6 +354,7 @@ void constant_acceleration_spaceship_simulation(
     bool FlipPrinted = false;
     double Vmax=0, KEshipmax=0, KEthrustmax=0;
 
+    // initialization
     Accel    = 4. * Distance / (Time * Time);
     TimeFlip = Time / 2;
     K        = sqrt(1. - (Vthrust*Vthrust)/(C*C));
@@ -347,6 +368,7 @@ void constant_acceleration_spaceship_simulation(
     S = 0;
     E = 0;
 
+    // print in verbose mode
     if (Verbose) {
         printf("Mass of Ship     = %.3f million kg\n", Mship/1000000); 
         printf("Mass of Thrust   = %.3f million kg\n", Mthrust/1000000);
@@ -359,6 +381,7 @@ void constant_acceleration_spaceship_simulation(
     }
 
     while (true) {
+        // print in verbose mode
         if (Verbose && (M <= Mship || ((uint64_t)T % PRINT_INTVL) == 0)) {
             printf("%12.2f %12.2f %12.2f %12.4f %12.2f",
                     SECONDS_TO_YEARS(T),
@@ -376,19 +399,30 @@ void constant_acceleration_spaceship_simulation(
             printf("\n");
         }
 
+        // if thrust tank is empty then the simulation is complete
         if (M <= Mship) {
             break;
         }
 
+        // for this time interval:
+        // - using conservation of momentum calculate the amount of thrust mass used in DeltaT inverval
+        // - calculate the amount of kinetic energy of the thrust mass used in this interval
         double DeltaM = (M * DeltaV) / (Vthrust / K);
         double DeltaE = DeltaM * C * C * (1./K - 1.);
 
+        // update current spaceship:
+        // - velocity
+        // - mass
+        // - time
+        // - distance
+        // - energy imparted to the thrust
         V += (T < TimeFlip ? DeltaV : -DeltaV);
         M -= DeltaM;
         T += DeltaT;
         S += V * DeltaT;
         E += DeltaE;
 
+        // keep track of maximum values, these will be returned to caller and printed out
         if (V > Vmax) {
             Vmax = V;
         }
@@ -402,6 +436,10 @@ void constant_acceleration_spaceship_simulation(
         }
     }
 
+    // sanity check that at the end of the trip the spaceship's:
+    // - velocity is near 0
+    // - distance travelled is near Distance
+    // - elapsed time is near Time
     if (fabs(V/C) > 0.01) {
         printf("WARNING: Final V = %.2f C\n", V/C);
     }
@@ -411,10 +449,14 @@ void constant_acceleration_spaceship_simulation(
     if (fabs(SECONDS_TO_YEARS(T-Time)) > .01) {
         printf("WARNING: Final Time = %.2f Years\n", SECONDS_TO_YEARS(T));
     }
+
+    // if the maximum spaceship velocity is too large (where relativity effects > 10%) then
+    // print a warning message
     if (Vmax/C > VELOCITY_WARNING) {
         printf("WARNING: Vmax = %.2f C\n", Vmax/C);
     }
 
+    // return stats
     *RetMthrust     = Mthrust;
     *RetEnergy      = E;
     *RetVmax        = Vmax;
